@@ -1,7 +1,26 @@
 import { Readable } from 'node:stream';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
 
-const serverModule = await import(new URL('../dist/server/server.js', import.meta.url));
-const server = serverModule.default;
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+let server: any = null;
+
+async function getServer() {
+  if (!server) {
+    try {
+      // Try to import from dist/server/server.js relative to project root
+      const serverPath = join(__dirname, '..', 'dist', 'server', 'server.js');
+      const serverModule = await import(serverPath);
+      server = serverModule.default;
+    } catch (error) {
+      console.error('Failed to load server module:', error);
+      throw error;
+    }
+  }
+  return server;
+}
 
 function toNodeHeaders(headers: Headers): Record<string, string> {
   const result: Record<string, string> = {};
@@ -12,32 +31,36 @@ function toNodeHeaders(headers: Headers): Record<string, string> {
 }
 
 export default async function handler(req: any, res: any) {
-  const host = req.headers.host || 'localhost';
-  const url = new URL(req.url, `https://${host}`);
+  try {
+    const server = await getServer();
+    const host = req.headers.host || 'localhost';
+    const url = new URL(req.url, `https://${host}`);
 
-  const request = new Request(url.toString(), {
-    method: req.method,
-    headers: toNodeHeaders(req.headers),
-    body: req.method === 'GET' || req.method === 'HEAD' ? undefined : req,
-  });
+    const request = new Request(url.toString(), {
+      method: req.method,
+      headers: toNodeHeaders(req.headers),
+      body: req.method === 'GET' || req.method === 'HEAD' ? undefined : req,
+    });
 
-  const response = await server.fetch(request, undefined, undefined);
+    const response = await server.fetch(request, undefined, undefined);
 
-  res.statusCode = response.status;
-  response.headers.forEach((value, key) => {
-    if (key.toLowerCase() === 'set-cookie') {
+    res.statusCode = response.status;
+    response.headers.forEach((value: string, key: string) => {
       res.setHeader(key, value);
-    } else {
-      res.setHeader(key, value);
+    });
+
+    const body = response.body;
+    if (!body) {
+      res.end();
+      return;
     }
-  });
 
-  const body = response.body;
-  if (!body) {
-    res.end();
-    return;
+    const nodeReadable = Readable.fromWeb(body as unknown as ReadableStream<Uint8Array>);
+    nodeReadable.pipe(res);
+  } catch (error) {
+    console.error('Handler error:', error);
+    res.statusCode = 500;
+    res.setHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify({ error: 'Internal server error' }));
   }
-
-  const nodeReadable = Readable.fromWeb(body as unknown as ReadableStream<Uint8Array>);
-  nodeReadable.pipe(res);
 }
