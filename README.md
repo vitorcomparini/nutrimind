@@ -39,10 +39,18 @@ Projeto trazido do Lovable para NutriMind Club.
    - `git remote add origin https://github.com/<seu-usuario>/<seu-repo>.git`
    - `git push -u origin main`
 
-## Deploy
+## Deploy no Vercel
 
-- Este projeto está configurado para rodar com `wrangler` / Cloudflare Workers via `wrangler.jsonc`.
-- Se quiser subir no Vercel, será necessário adaptar o deploy para o ambiente Vercel, pois atualmente há configuração de servidor compatível com Workers.
+Este projeto agora está adaptado para Vercel.
+
+1. Crie um novo projeto no Vercel.
+2. Aponte o repositório GitHub para este projeto.
+3. Configure as variáveis de ambiente no painel do Vercel usando os mesmos nomes de `.env.example`.
+4. Se o Vercel solicitar, configure:
+   - Build command: `npm run build`
+   - Output directory: `dist/client`
+
+Observação: `vercel.json` já está incluído para redirecionar o tráfego para `api/[[...path]].ts`.
 
 ## CI recomendado
 
