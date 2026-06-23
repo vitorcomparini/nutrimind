@@ -1,0 +1,1 @@
+ALTER TABLE public.lessons RENAME COLUMN youtube_id TO drive_file_id;
